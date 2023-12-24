@@ -25,9 +25,11 @@ RUN mv /app/node_modules /node_modules
 # Enable this to run `npm run serve`
 RUN npm i -g nodemon
 
+# Setup Repository for wireguard-go
+RUN echo "@testing https://dl-cdn.alpinelinux.org/alpine/edge/testing" >> /etc/apk/repositories
+
 # Install Linux packages
-RUN echo "@testing https://dl-cdn.alpinelinux.org/alpine/edge/testing" >> /etc/apk/repositories \
-    apk add -U --no-cache \
+RUN apk add -U --no-cache \
     dpkg \
     dumb-init \
     iptables \
