@@ -26,12 +26,13 @@ RUN mv /app/node_modules /node_modules
 RUN npm i -g nodemon
 
 # Install Linux packages
-RUN apk add -U --no-cache \
+RUN echo "@testing https://dl-cdn.alpinelinux.org/alpine/edge/testing" >> /etc/apk/repositories \
+    apk add -U --no-cache \
     dpkg \
     dumb-init \
     iptables \
     iptables-legacy \
-    wireguard-tools
+    wireguard-go@testing
 
 # Use iptables-legacy
 RUN update-alternatives --install /sbin/iptables iptables /sbin/iptables-legacy 10 --slave /sbin/iptables-restore iptables-restore /sbin/iptables-legacy-restore --slave /sbin/iptables-save iptables-save /sbin/iptables-legacy-save
