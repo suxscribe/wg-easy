@@ -63,11 +63,11 @@ module.exports = class WireGuard {
         await Util.exec(`wg-quick down ${WG_INTERFACE}`).catch(() => { });
         await Util.exec(`wg-quick up ${WG_INTERFACE}`).catch((err) => {
           if (err && err.message && err.message.includes(`Cannot find device ${WG_INTERFACE}`)) {
-            debug('WireGuard exited with the error: Cannot find device ${WG_INTERFACE}\nThis usually means that your host\'s kernel does not support WireGuard! Trying to use wireguard-go implementation.');
+            debug(`WireGuard exited with the error: Cannot find device ${WG_INTERFACE}\nThis usually means that your host's kernel does not support WireGuard! Trying to use wireguard-go implementation.`);
             Util.exec('rm -f /var/run/wireguard/wg0.sock').catch(() => { });
             Util.exec('wireguard-go -f wg0').catch((err) => {
               if (err && err.message && err.message.includes(`Cannot find device ${WG_INTERFACE}`)) {
-                throw new Error('WireGuard exited with the error: Cannot find device ${WG_INTERFACE}\nThis means, that even wireguard-go does not work!\nThis usually means that you didn\'t mounted /dev/net/tun to container properly!');
+                throw new Error(`WireGuard exited with the error: Cannot find device ${WG_INTERFACE}\nThis means, that even wireguard-go does not work!\nThis usually means that you didn't mounted /dev/net/tun to container properly!`);
               }
 
               throw err;
