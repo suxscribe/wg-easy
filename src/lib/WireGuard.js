@@ -23,7 +23,6 @@ const {
   WG_POST_UP,
   WG_PRE_DOWN,
   WG_POST_DOWN,
-  WG_INTERFACE,
 } = require('../config');
 
 module.exports = class WireGuard {
@@ -60,14 +59,14 @@ module.exports = class WireGuard {
         }
 
         await this.__saveConfig(config);
-        await Util.exec(`wg-quick down ${WG_INTERFACE}`).catch(() => { });
-        await Util.exec(`wg-quick up ${WG_INTERFACE}`).catch((err) => {
-          if (err && err.message && err.message.includes(`Cannot find device ${WG_INTERFACE}`)) {
-            debug(`WireGuard exited with the error: Cannot find device ${WG_INTERFACE}\nThis usually means that your host's kernel does not support WireGuard! Trying to use wireguard-go implementation.`);
+        await Util.exec('wg-quick down wg0').catch(() => { });
+        await Util.exec('wg-quick up wg0').catch((err) => {
+          if (err && err.message && err.message.includes(`Cannot find device wg0`)) {
+            debug(`WireGuard exited with the error: Cannot find device wg0\nThis usually means that your host's kernel does not support WireGuard! Trying to use wireguard-go implementation.`);
             Util.exec('rm -f /var/run/wireguard/wg0.sock').catch(() => { });
             Util.exec('wireguard-go -f wg0').catch((err) => {
-              if (err && err.message && err.message.includes(`Cannot find device ${WG_INTERFACE}`)) {
-                throw new Error(`WireGuard exited with the error: Cannot find device ${WG_INTERFACE}\nThis means, that even wireguard-go does not work!\nThis usually means that you didn't mounted /dev/net/tun to container properly!`);
+              if (err && err.message && err.message.includes(`Cannot find device wg0`)) {
+                throw new Error(`WireGuard exited with the error: Cannot find device wg0\nThis means, that even wireguard-go does not work!\nThis usually means that you didn't mounted /dev/net/tun to container properly!`);
               }
 
               throw err;
@@ -77,9 +76,9 @@ module.exports = class WireGuard {
           }
         });
         // await Util.exec(`iptables -t nat -A POSTROUTING -s ${WG_DEFAULT_ADDRESS.replace('x', '0')}/24 -o ' + WG_DEVICE + ' -j MASQUERADE`);
-        // await Util.exec('iptables -A INPUT -p udp -m udp --dport ' + WG_PORT + ' -j ACCEPT');
-        // await Util.exec('iptables -A FORWARD -i ' + WG_INTERFACE + ' -j ACCEPT');
-        // await Util.exec('iptables -A FORWARD -o ' + WG_INTERFACE + ' -j ACCEPT');
+        // await Util.exec('iptables -A INPUT -p udp -m udp --dport 51820 -j ACCEPT');
+        // await Util.exec('iptables -A FORWARD -i wg0 -j ACCEPT');
+        // await Util.exec('iptables -A FORWARD -o wg0 -j ACCEPT');
         await this.__syncConfig();
 
         return config;
@@ -104,7 +103,7 @@ module.exports = class WireGuard {
 [Interface]
 PrivateKey = ${config.server.privateKey}
 Address = ${config.server.address}/24
-ListenPort = ${WG_PORT}
+ListenPort = 51820
 PreUp = ${WG_PRE_UP}
 PostUp = ${WG_POST_UP}
 PreDown = ${WG_PRE_DOWN}
@@ -127,7 +126,7 @@ AllowedIPs = ${client.address}/32`;
     await fs.writeFile(path.join(WG_PATH, 'wg0.json'), JSON.stringify(config, false, 2), {
       mode: 0o660,
     });
-    await fs.writeFile(path.join(WG_PATH, `${WG_INTERFACE}.conf`), result, {
+    await fs.writeFile(path.join(WG_PATH, 'wg0.conf'), result, {
       mode: 0o600,
     });
     debug('Config saved.');
@@ -135,7 +134,7 @@ AllowedIPs = ${client.address}/32`;
 
   async __syncConfig() {
     debug('Config syncing...');
-    await Util.exec(`wg syncconf ${WG_INTERFACE} <(wg-quick strip ${WG_INTERFACE})`);
+    await Util.exec('wg syncconf wg0 <(wg-quick strip wg0)');
     debug('Config synced.');
   }
 
@@ -158,7 +157,7 @@ AllowedIPs = ${client.address}/32`;
     }));
 
     // Loop WireGuard status
-    const dump = await Util.exec(`wg show ${WG_INTERFACE} dump`, {
+    const dump = await Util.exec('wg show wg0 dump', {
       log: false,
     });
     dump
