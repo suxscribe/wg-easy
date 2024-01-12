@@ -14,7 +14,7 @@ RUN npm ci --omit=dev &&\
 FROM docker.io/library/node:18-alpine
 
 # Copy the server files and the built static files
-COPY --from=build_node_modules /server /app
+COPY --from=build_node_modules /server /app/server
 COPY --from=build_node_modules /webui/dist /app/www
 
 # Move node_modules one directory up, so during development
@@ -53,5 +53,5 @@ EXPOSE 51821/tcp
 ENV DEBUG=Server,WireGuard
 
 # Run Web UI
-WORKDIR /app
+WORKDIR /app/server
 CMD ["/usr/bin/dumb-init", "node", "server.js"]
