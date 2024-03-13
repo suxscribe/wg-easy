@@ -30,3 +30,4 @@ module.exports.WG_PRE_DOWN = process.env.WG_PRE_DOWN || '';
 module.exports.WG_POST_DOWN = process.env.WG_POST_DOWN || '';
 module.exports.LANG = process.env.LANG || 'en';
 module.exports.UI_TRAFFIC_STATS = process.env.UI_TRAFFIC_STATS || 'false';
+module.exports.UI_CHART_TYPE = process.env.UI_CHART_TYPE || 0;
