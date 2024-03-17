@@ -3,3 +3,6 @@
 /wg0.json
 .DS_Store
 *.swp
+*.code-workspace
+.env*
+/.vscode
