@@ -77,17 +77,17 @@
               class="relative overflow-hidden border-b last:border-b-0 border-gray-100 dark:border-neutral-600 border-solid">
 
               <!-- Chart -->
-              <div v-if="uiChartType" class="absolute z-0 bottom-0 left-0 right-0" style="top: 60%;">
+              <div v-if="uiChartType" class="absolute z-0 bottom-0 left-0 right-0 h-6">
                 <apexchart width="100%" height="100%" :options="chartOptionsTX" :series="client.transferTxSeries">
                 </apexchart>
               </div>
-              <div v-if="uiChartType" class="absolute z-0 top-0 left-0 right-0" style="bottom: 60%;">
+              <div v-if="uiChartType" class="absolute z-0 top-0 left-0 right-0 h-6">
                 <apexchart width="100%" height="100%" :options="chartOptionsRX" :series="client.transferRxSeries"
                   style="transform: scaleY(-1);">
                 </apexchart>
               </div>
 
-              <div class="relative py-5 px-3 z-10 flex flex-col sm:flex-row justify-between gap-3">
+              <div class="relative py-3 md:py-5 px-3 z-10 flex flex-col sm:flex-row justify-between gap-3">
                 <div class="flex gap-3 md:gap-4 w-full items-center ">
 
                   <!-- Avatar -->
@@ -162,20 +162,24 @@
                           </span>
                         </span>
                         <!-- Inline Transfer TX -->
-                        <span v-if="!uiTrafficStats && client.transferTx" class="whitespace-nowrap" :title="$t('totalDownload') + bytes(client.transferTx)">
+                        <span v-if="!uiTrafficStats && client.transferTx" class="whitespace-nowrap"
+                          :title="$t('totalDownload') + bytes(client.transferTx)">
                           ·
-                          <svg class="align-middle h-3 inline" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                          <svg class="align-middle h-3 inline" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"
+                            fill="currentColor">
                             <path fill-rule="evenodd"
                               d="M16.707 10.293a1 1 0 010 1.414l-6 6a1 1 0 01-1.414 0l-6-6a1 1 0 111.414-1.414L9 14.586V3a1 1 0 012 0v11.586l4.293-4.293a1 1 0 011.414 0z"
                               clip-rule="evenodd" />
                           </svg>
                           {{client.transferTxCurrent | bytes}}/s
                         </span>
-                        
+
                         <!-- Inline Transfer RX -->
-                        <span v-if="!uiTrafficStats && client.transferRx" class="whitespace-nowrap" :title="$t('totalUpload') + bytes(client.transferRx)">
+                        <span v-if="!uiTrafficStats && client.transferRx" class="whitespace-nowrap"
+                          :title="$t('totalUpload') + bytes(client.transferRx)">
                           ·
-                          <svg class="align-middle h-3 inline" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                          <svg class="align-middle h-3 inline" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"
+                            fill="currentColor">
                             <path fill-rule="evenodd"
                               d="M3.293 9.707a1 1 0 010-1.414l6-6a1 1 0 011.414 0l6 6a1 1 0 01-1.414 1.414L11 5.414V17a1 1 0 11-2 0V5.414L4.707 9.707a1 1 0 01-1.414 0z"
                               clip-rule="evenodd" />
@@ -183,7 +187,8 @@
                           {{client.transferRxCurrent | bytes}}/s
                         </span>
                         <!-- Last seen -->
-                        <span class="text-gray-400 dark:text-neutral-500 whitespace-nowrap" v-if="client.latestHandshakeAt"
+                        <span class="text-gray-400 dark:text-neutral-500 whitespace-nowrap"
+                          v-if="client.latestHandshakeAt"
                           :title="$t('lastSeen') + dateTime(new Date(client.latestHandshakeAt))">
                           {{!uiTrafficStats ? " · " : ""}}{{new Date(client.latestHandshakeAt) | timeago}}
                         </span>
@@ -254,9 +259,13 @@
 
                     <!-- Show QR-->
 
-                    <button
-                      class="align-middle bg-gray-100 dark:bg-neutral-600 dark:text-neutral-300 hover:bg-red-800 dark:hover:bg-red-800 hover:text-white dark:hover:text-white p-2 rounded transition"
-                      :title="$t('showQR')" @click="qrcode = `./api/wireguard/client/${client.id}/qrcode.svg`">
+                    <button :disabled="!client.downloadableConfig"
+                      class="align-middle bg-gray-100 dark:bg-neutral-600 dark:text-neutral-300 p-2 rounded transition"
+                      :class="{
+                        'hover:bg-red-800 dark:hover:bg-red-800 hover:text-white dark:hover:text-white': client.downloadableConfig,
+                        'is-disabled': !client.downloadableConfig
+                      }" :title="!client.downloadableConfig ? $t('noPrivKey') : $t('showQR')"
+                      @click="qrcode = `./api/wireguard/client/${client.id}/qrcode.svg`">
                       <svg class="w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
                         stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -265,9 +274,15 @@
                     </button>
 
                     <!-- Download Config -->
-                    <a :href="'./api/wireguard/client/' + client.id + '/configuration'" download
-                      class="align-middle inline-block bg-gray-100 dark:bg-neutral-600 dark:text-neutral-300 hover:bg-red-800 dark:hover:bg-red-800 hover:text-white dark:hover:text-white p-2 rounded transition"
-                      :title="$t('downloadConfig')">
+                    <a :disabled="!client.downloadableConfig"
+                      :href="'./api/wireguard/client/' + client.id + '/configuration'"
+                      :download="client.downloadableConfig ? 'configuration' : null"
+                      class="align-middle inline-block bg-gray-100 dark:bg-neutral-600 dark:text-neutral-300 p-2 rounded transition"
+                      :class="{
+                        'hover:bg-red-800 dark:hover:bg-red-800 hover:text-white dark:hover:text-white': client.downloadableConfig,
+                        'is-disabled': !client.downloadableConfig
+                      }" :title="!client.downloadableConfig ? $t('noPrivKey') : $t('downloadConfig')"
+                      @click="if(!client.downloadableConfig) { $event.preventDefault(); }">
                       <svg class="w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
                         stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -370,8 +385,8 @@
                 <div class="sm:flex sm:items-start">
                   <div
                     class="mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-red-800 sm:mx-0 sm:h-10 sm:w-10">
-                    <svg class="h-6 w-6 text-white" inline xmlns="http://www.w3.org/2000/svg"
-                      fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <svg class="h-6 w-6 text-white" inline xmlns="http://www.w3.org/2000/svg" fill="none"
+                      viewBox="0 0 24 24" stroke="currentColor">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                         d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
                     </svg>
@@ -488,8 +503,8 @@
           class="shadow rounded-md bg-white dark:bg-neutral-700 mx-auto w-64 p-5 overflow-hidden mt-10">
           <!-- Avatar -->
           <div class="h-20 w-20 mb-10 mt-5 mx-auto rounded-full bg-red-800 dark:bg-red-800 relative overflow-hidden">
-            <svg class="w-10 h-10 m-5 text-white dark:text-white" xmlns="http://www.w3.org/2000/svg"
-              viewBox="0 0 20 20" fill="currentColor">
+            <svg class="w-10 h-10 m-5 text-white dark:text-white" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"
+              fill="currentColor">
               <path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd" />
             </svg>
           </div>
@@ -530,9 +545,10 @@
 
     </div>
 
-    <p v-cloak class="text-center m-10 text-gray-300 dark:text-neutral-600 text-xs"> <a class="hover:underline" target="_blank" 
-        href="https://github.com/wg-easy/wg-easy">WireGuard Easy</a> © 2021-2024 by <a class="hover:underline" target="_blank"
-        href="https://emilenijssen.nl/?ref=wg-easy">Emile Nijssen</a> is licensed under <a class="hover:underline" target="_blank"
+    <p v-cloak class="text-center m-10 text-gray-300 dark:text-neutral-600 text-xs"> <a class="hover:underline"
+        target="_blank" href="https://github.com/wg-easy/wg-easy">WireGuard Easy</a> © 2021-2024 by <a
+        class="hover:underline" target="_blank" href="https://emilenijssen.nl/?ref=wg-easy">Emile Nijssen</a> is
+      licensed under <a class="hover:underline" target="_blank"
         href="http://creativecommons.org/licenses/by-nc-sa/4.0/">CC BY-NC-SA 4.0</a> · <a class="hover:underline"
         href="https://github.com/sponsors/WeeJeWel" target="_blank">{{$t("donate")}}</a></p>
 
