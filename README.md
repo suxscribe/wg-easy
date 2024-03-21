@@ -23,6 +23,8 @@ You have found the easiest way to install & manage WireGuard on any Linux host!
 * Tx/Rx charts for each connected client.
 * Gravatar support.
 * Automatic Light / Dark Mode
+* Multilanguage Support
+* UI_TRAFFIC_STATS (default off)
 
 ## Requirements
 
@@ -118,13 +120,11 @@ docker pull ghcr.io/wg-easy/wg-easy
 
 And then run the `docker run -d \ ...` command above again.
 
-To update using Docker Compose:
-
-```shell
-docker compose pull
-docker compose up --detach
-```
-
+With Docker Compose WireGuard Easy can be updated with a single command:
+`docker compose up --detach --pull always` (if an image tag is specified in the
+Compose file and it is not `latest`, make sure that it is changed to the desired
+one; by default it is omitted and
+[defaults to `latest`](https://docs.docker.com/engine/reference/run/#image-references)). \
 The WireGuared Easy container will be automatically recreated if a newer image
 was pulled.
 
