@@ -2,7 +2,6 @@
 /wg0.conf
 /wg0.json
 .DS_Store
-*.swp
 
 # Logs
 logs
@@ -25,7 +24,7 @@ coverage
 
 # Editor directories and files
 .vscode/*
-*.vscode-workspace
+*.code-workspace
 !.vscode/extensions.json
 .idea
 *.suo
@@ -35,3 +34,4 @@ coverage
 *.sw?
 
 *.tsbuildinfo
+*.env*
