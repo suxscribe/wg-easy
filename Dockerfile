@@ -5,8 +5,9 @@ FROM docker.io/library/node:18-alpine AS build_node_modules
 
 # Copy Web UI
 COPY src/ /app/
+COPY webui/dist/ /app/www/
 WORKDIR /app
-RUN npm ci --omit=dev &&\
+RUN npm ci &&\
     mv node_modules /node_modules
 
 # Copy build result to a new image.
@@ -14,8 +15,7 @@ RUN npm ci --omit=dev &&\
 FROM docker.io/library/node:18-alpine
 
 # Copy the server files and the built static files
-COPY --from=build_node_modules /server /app/server
-COPY --from=build_node_modules /webui/dist /app/www
+COPY --from=build_node_modules /app /app
 
 # Move node_modules one directory up, so during development
 # we don't have to mount it in a volume.
@@ -53,5 +53,5 @@ EXPOSE 51821/tcp
 ENV DEBUG=Server,WireGuard
 
 # Run Web UI
-WORKDIR /app/server
+WORKDIR /app
 CMD ["/usr/bin/dumb-init", "node", "server.js"]
