@@ -5,10 +5,14 @@ FROM docker.io/library/node:18-alpine AS build_node_modules
 
 # Copy Web UI
 COPY src/ /app/
-COPY webui/dist/ /app/www/
+COPY webui/ /webui/
 WORKDIR /app
 RUN npm ci &&\
     mv node_modules /node_modules
+WORKDIR /webui
+RUN npm ci &&\
+    npm run build
+COPY webui/dist/ /app/www/
 
 # Copy build result to a new image.
 # This saves a lot of disk space.
@@ -29,8 +33,6 @@ COPY --from=build_node_modules /node_modules /node_modules
 RUN \
     # Enable this to run `npm run serve`
     npm i -g nodemon &&\
-    # Workaround CVE-2023-42282
-    npm uninstall -g ip &&\
     # Delete unnecessary files 
     npm cache clean --force && rm -rf ~/.npm
 
