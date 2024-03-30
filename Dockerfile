@@ -4,7 +4,7 @@ FROM docker.io/library/node:18-alpine AS build_node_modules
 
 # Copy Web UI
 COPY src/ /app/
-COPY webui/dist/ /app/www/
+COPY webui/ /webui/
 WORKDIR /app
 RUN npm ci --omit=dev &&\
     # Enable this to run `npm run serve`
@@ -12,6 +12,10 @@ RUN npm ci --omit=dev &&\
     # Delete unnecessary files 
     npm cache clean --force && rm -rf ~/.npm &&\
     mv node_modules /node_modules
+WORKDIR /webui
+RUN npm ci &&\
+    npm run build
+COPY webui/dist/ /app/www/
 
 # Copy build result to a new image.
 # This saves a lot of disk space.
