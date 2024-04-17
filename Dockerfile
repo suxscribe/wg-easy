@@ -12,7 +12,6 @@ RUN npm ci &&\
 WORKDIR /webui
 RUN npm ci &&\
     npm run build
-COPY webui/dist/ /app/www/
 
 # Copy build result to a new image.
 # This saves a lot of disk space.
@@ -20,6 +19,7 @@ FROM docker.io/library/node:18-alpine
 
 # Copy the server files and the built static files
 COPY --from=build_node_modules /app /app
+COPY --from=build_node_modules /webui/dist/ /app/www
 
 # Move node_modules one directory up, so during development
 # we don't have to mount it in a volume.
