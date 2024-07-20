@@ -1,11 +1,9 @@
 'use strict';
 
-const fs = require('fs').promises;
+const fs = require('node:fs/promises');
 const path = require('path');
-
 const debug = require('debug')('WireGuard');
-const ip = require('ip');
-const uuid = require('uuid');
+const crypto = require('node:crypto');
 const QRCode = require('qrcode');
 
 const Util = require('./Util');
@@ -15,14 +13,12 @@ const {
   WG_PATH,
   WG_HOST,
   WG_PORT,
+  WG_CONFIG_PORT,
   WG_MTU,
   WG_DEFAULT_DNS,
-  WG_DEFAULT_ADDRESS_RANGE,
+  WG_DEFAULT_ADDRESS,
   WG_PERSISTENT_KEEPALIVE,
   WG_ALLOWED_IPS,
-  WG_SERVER_ADDRESS,
-  WG_CLIENT_FIRST_ADDRESS,
-  WG_CLIENT_LAST_ADDRESS,
   WG_PRE_UP,
   WG_POST_UP,
   WG_PRE_DOWN,
@@ -31,56 +27,60 @@ const {
 
 module.exports = class WireGuard {
 
+  async __buildConfig() {
+    this.__configPromise = Promise.resolve().then(async () => {
+      if (!WG_HOST) {
+        throw new Error('WG_HOST Environment Variable Not Set!');
+      }
+
+      debug('Loading configuration...');
+      let config;
+      try {
+        config = await fs.readFile(path.join(WG_PATH, 'wg0.json'), 'utf8');
+        config = JSON.parse(config);
+        debug('Configuration loaded.');
+      } catch (err) {
+        const privateKey = await Util.exec('wg genkey');
+        const publicKey = await Util.exec(`echo ${privateKey} | wg pubkey`, {
+          log: 'echo ***hidden*** | wg pubkey',
+        });
+        const address = WG_DEFAULT_ADDRESS.replace('x', '1');
+
+        config = {
+          server: {
+            privateKey,
+            publicKey,
+            address,
+          },
+          clients: {},
+        };
+        debug('Configuration generated.');
+      }
+
+      return config;
+    });
+
+    return this.__configPromise;
+  }
+
   async getConfig() {
     if (!this.__configPromise) {
-      this.__configPromise = Promise.resolve().then(async () => {
-        if (!WG_HOST) {
-          throw new Error('WG_HOST Environment Variable Not Set!');
+      const config = await this.__buildConfig();
+
+      await this.__saveConfig(config);
+      await Util.exec('wg-quick down wg0').catch(() => {});
+      await Util.exec('wg-quick up wg0').catch((err) => {
+        if (err && err.message && err.message.includes('Cannot find device "wg0"')) {
+          throw new Error('WireGuard exited with the error: Cannot find device "wg0"\nThis usually means that your host\'s kernel does not support WireGuard!');
         }
 
-        debug('Loading configuration...');
-        let config;
-        try {
-          config = await fs.readFile(path.join(WG_PATH, 'wg0.json'), 'utf8');
-          config = JSON.parse(config);
-          debug('Configuration loaded.');
-        } catch (err) {
-          const privateKey = await Util.exec('wg genkey');
-          const publicKey = await Util.exec(`echo ${privateKey} | wg pubkey`, {
-            log: 'echo ***hidden*** | wg pubkey',
-          });
-          const address = WG_SERVER_ADDRESS;
-          const cidrBlock = WG_DEFAULT_ADDRESS_RANGE;
-
-          config = {
-            server: {
-              privateKey,
-              publicKey,
-              address,
-              cidrBlock,
-            },
-            clients: {},
-          };
-          debug('Configuration generated.');
-        }
-
-        await this.__saveConfig(config);
-        await Util.exec('wg-quick down wg0').catch(() => { });
-        await Util.exec('wg-quick up wg0').catch((err) => {
-          if (err && err.message && err.message.includes('Cannot find device "wg0"')) {
-            throw new Error('WireGuard exited with the error: Cannot find device "wg0"\nThis usually means that your host\'s kernel does not support WireGuard!');
-          }
-
-          throw err;
-        });
-        // await Util.exec(`iptables -t nat -A POSTROUTING -s ${WG_SERVER_ADDRESS}/${WG_DEFAULT_ADDRESS_RANGE} -o ' + WG_DEVICE + ' -j MASQUERADE`);
-        // await Util.exec('iptables -A INPUT -p udp -m udp --dport 51820 -j ACCEPT');
-        // await Util.exec('iptables -A FORWARD -i wg0 -j ACCEPT');
-        // await Util.exec('iptables -A FORWARD -o wg0 -j ACCEPT');
-        await this.__syncConfig();
-
-        return config;
+        throw err;
       });
+      // await Util.exec(`iptables -t nat -A POSTROUTING -s ${WG_DEFAULT_ADDRESS.replace('x', '0')}/24 -o ' + WG_DEVICE + ' -j MASQUERADE`);
+      // await Util.exec('iptables -A INPUT -p udp -m udp --dport 51820 -j ACCEPT');
+      // await Util.exec('iptables -A FORWARD -i wg0 -j ACCEPT');
+      // await Util.exec('iptables -A FORWARD -o wg0 -j ACCEPT');
+      await this.__syncConfig();
     }
 
     return this.__configPromise;
@@ -100,8 +100,8 @@ module.exports = class WireGuard {
 # Server
 [Interface]
 PrivateKey = ${config.server.privateKey}
-Address = ${config.server.address}/${config.server.cidrBlock}
-ListenPort = 51820
+Address = ${config.server.address}/24
+ListenPort = ${WG_PORT}
 PreUp = ${WG_PRE_UP}
 PostUp = ${WG_POST_UP}
 PreDown = ${WG_PRE_DOWN}
@@ -143,7 +143,6 @@ ${client.preSharedKey ? `PresharedKey = ${client.preSharedKey}\n` : ''
       name: client.name,
       enabled: client.enabled,
       address: client.address,
-      cidrBlock: client.cidrBlock,
       publicKey: client.publicKey,
       createdAt: new Date(client.createdAt),
       updatedAt: new Date(client.updatedAt),
@@ -206,7 +205,7 @@ ${client.preSharedKey ? `PresharedKey = ${client.preSharedKey}\n` : ''
     return `
 [Interface]
 PrivateKey = ${client.privateKey ? `${client.privateKey}` : 'REPLACE_ME'}
-Address = ${client.address}/${client.cidrBlock}
+Address = ${client.address}/24
 ${WG_DEFAULT_DNS ? `DNS = ${WG_DEFAULT_DNS}\n` : ''}\
 ${WG_MTU ? `MTU = ${WG_MTU}\n` : ''}\
 
@@ -215,7 +214,7 @@ PublicKey = ${config.server.publicKey}
 ${client.preSharedKey ? `PresharedKey = ${client.preSharedKey}\n` : ''
 }AllowedIPs = ${WG_ALLOWED_IPS}
 PersistentKeepalive = ${WG_PERSISTENT_KEEPALIVE}
-Endpoint = ${WG_HOST}:${WG_PORT}`;
+Endpoint = ${WG_HOST}:${WG_CONFIG_PORT}`;
   }
 
   async getClientQRCodeSVG({ clientId }) {
@@ -234,19 +233,20 @@ Endpoint = ${WG_HOST}:${WG_PORT}`;
     const config = await this.getConfig();
 
     const privateKey = await Util.exec('wg genkey');
-    const publicKey = await Util.exec(`echo ${privateKey} | wg pubkey`);
+    const publicKey = await Util.exec(`echo ${privateKey} | wg pubkey`, {
+      log: 'echo ***hidden*** | wg pubkey',
+    });
     const preSharedKey = await Util.exec('wg genpsk');
 
-    // find next IP
+    // Calculate next IP
     let address;
-    for (let i = WG_CLIENT_FIRST_ADDRESS; i <= WG_CLIENT_LAST_ADDRESS; i++) {
-      const currentIp = ip.fromLong(i);
+    for (let i = 2; i < 255; i++) {
       const client = Object.values(config.clients).find((client) => {
-        return client.address === currentIp;
+        return client.address === WG_DEFAULT_ADDRESS.replace('x', i);
       });
 
       if (!client) {
-        address = currentIp;
+        address = WG_DEFAULT_ADDRESS.replace('x', i);
         break;
       }
     }
@@ -256,13 +256,11 @@ Endpoint = ${WG_HOST}:${WG_PORT}`;
     }
 
     // Create Client
-    const id = uuid.v4();
-    const cidrBlock = WG_DEFAULT_ADDRESS_RANGE;
+    const id = crypto.randomUUID();
     const client = {
       id,
       name,
       address,
-      cidrBlock,
       privateKey,
       publicKey,
       preSharedKey,
@@ -319,7 +317,7 @@ Endpoint = ${WG_HOST}:${WG_PORT}`;
   async updateClientAddress({ clientId, address }) {
     const client = await this.getClient({ clientId });
 
-    if (!ip.isV4Format(address)) {
+    if (!Util.isValidIPv4(address)) {
       throw new ServerError(`Invalid Address: ${address}`, 400);
     }
 
@@ -329,9 +327,30 @@ Endpoint = ${WG_HOST}:${WG_PORT}`;
     await this.saveConfig();
   }
 
+  async __reloadConfig() {
+    await this.__buildConfig();
+    await this.__syncConfig();
+  }
+
+  async restoreConfiguration(config) {
+    debug('Starting configuration restore process.');
+    const _config = JSON.parse(config);
+    await this.__saveConfig(_config);
+    await this.__reloadConfig();
+    debug('Configuration restore process completed.');
+  }
+
+  async backupConfiguration() {
+    debug('Starting configuration backup.');
+    const config = await this.getConfig();
+    const backup = JSON.stringify(config, null, 2);
+    debug('Configuration backup completed.');
+    return backup;
+  }
+
   // Shutdown wireguard
   async Shutdown() {
-    await Util.exec('wg-quick down wg0').catch(() => { });
+    await Util.exec('wg-quick down wg0').catch(() => {});
   }
 
 };
